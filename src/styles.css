@@ -197,7 +197,6 @@ input[type='checkbox'] { accent-color: var(--green); width: 15px; height: 15px; 
 .map-name { flex: 1; min-width: 0; height: 30px; border: 1px solid var(--border); border-radius: 5px; padding: 0 8px; font-weight: 600; outline: none; }
 .map-type { height: 30px; border: 1px solid var(--border); border-radius: 5px; background: #fff; max-width: 150px; outline: none; }
 .map-meta { display: flex; gap: 6px; flex-wrap: wrap; }
-.map-hint { font-size: 12px; color: var(--muted); }
 .tag-soft, .tag-bad, .tag-good { font-size: 11px; padding: 2px 7px; border-radius: 999px; font-weight: 500; }
 .tag-soft { background: #f0f1f3; color: var(--muted); }
 .tag-bad { background: var(--red-tint); color: var(--red); }

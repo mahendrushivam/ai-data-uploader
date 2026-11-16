@@ -1,15 +1,15 @@
 import type { CellValue, Column, ColumnType } from '../types';
 
-export const TYPE_DEFS: Record<ColumnType, { label: string; icon: string; hint: string }> = {
-  text: { label: 'Text', icon: 'Aa', hint: 'Free-form text' },
-  number: { label: 'Number', icon: '#', hint: 'Decimals, e.g. 3.14, 1,200, 45%' },
-  integer: { label: 'Integer', icon: '123', hint: 'Whole numbers only' },
-  boolean: { label: 'Boolean', icon: '✓', hint: 'true/false, yes/no, 1/0' },
-  date: { label: 'Date', icon: 'D', hint: 'YYYY-MM-DD or MM/DD/YYYY' },
-  email: { label: 'Email', icon: '@', hint: 'A valid email address' },
-  url: { label: 'URL', icon: '↗', hint: 'http(s)://…' },
-  select: { label: 'Single select', icon: '◉', hint: 'One value from a set of options' },
-  multiselect: { label: 'Multi-value list', icon: '≡', hint: 'Several values in one cell, split by a delimiter' },
+export const TYPE_DEFS: Record<ColumnType, { label: string; icon: string }> = {
+  text: { label: 'Text', icon: 'Aa' },
+  number: { label: 'Number', icon: '#' },
+  integer: { label: 'Integer', icon: '123' },
+  boolean: { label: 'Boolean', icon: '✓' },
+  date: { label: 'Date', icon: 'D' },
+  email: { label: 'Email', icon: '@' },
+  url: { label: 'URL', icon: '↗' },
+  select: { label: 'Single select', icon: '◉' },
+  multiselect: { label: 'Multi-value list', icon: '≡' },
 };
 
 export const TYPE_ORDER: ColumnType[] = [

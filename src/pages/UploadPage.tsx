@@ -310,7 +310,6 @@ export function UploadPage({ session, onLogout, sample }: { session: Session; on
                             Required
                           </label>
                         </div>
-                        <div className="map-hint">{TYPE_DEFS[m.type].hint}</div>
                       </>
                     )}
                   </div>
