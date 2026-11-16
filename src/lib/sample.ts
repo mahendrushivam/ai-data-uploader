@@ -17,8 +17,6 @@ export function buildSampleCsv(): string {
   const labels = ['bug', 'praise', 'billing', 'question', 'feature_request'];
   const labelFor = [0, 1, 2, 3, 0, 1, 3, 0, 4, 0];
   const tagPool = ['mobile', 'web', 'payments', 'ux', 'performance', 'support', 'export', 'search', 'onboarding'];
-  // Fictional annotators on the reserved example.com domain (RFC 2606)
-  const annotators = ['ana', 'raj', 'mei'].map((n) => `${n}@example.com`);
 
   let seed = 7;
   const rand = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
@@ -38,17 +36,16 @@ export function buildSampleCsv(): string {
       rand() > 0.6 ? 'yes' : 'no',
       `2026-10-${day}`,
       `https://support.example.com/tickets/${1000 + i}`,
-      pick(annotators),
     ]);
   }
   // A few problems for the reviewer to find
   rows[3][4] = 'n/a';
-  rows[11][8] = 'mei_at_example';
+  rows[11][7] = 'not-a-link';
   rows[17][6] = '2026-13-45';
   rows[25][5] = 'maybe';
 
   return Papa.unparse({
-    fields: ['ticket_id', 'text', 'label', 'tags', 'confidence', 'needs_review', 'created_at', 'source_url', 'annotator'],
+    fields: ['ticket_id', 'text', 'label', 'tags', 'confidence', 'needs_review', 'created_at', 'source_url'],
     data: rows,
   });
 }
