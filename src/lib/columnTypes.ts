@@ -6,7 +6,7 @@ export const TYPE_DEFS: Record<ColumnType, { label: string; icon: string; hint: 
   integer: { label: 'Integer', icon: '123', hint: 'Whole numbers only' },
   boolean: { label: 'Boolean', icon: '✓', hint: 'true/false, yes/no, 1/0' },
   date: { label: 'Date', icon: 'D', hint: 'YYYY-MM-DD or MM/DD/YYYY' },
-  email: { label: 'Email', icon: '@', hint: 'name@domain.com' },
+  email: { label: 'Email', icon: '@', hint: 'A valid email address' },
   url: { label: 'URL', icon: '↗', hint: 'http(s)://…' },
   select: { label: 'Single select', icon: '◉', hint: 'One value from a set of options' },
   multiselect: { label: 'Multi-value list', icon: '≡', hint: 'Several values in one cell, split by a delimiter' },

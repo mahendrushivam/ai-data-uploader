@@ -55,11 +55,16 @@ export async function signIn(email: string, password: string): Promise<Session> 
   return startSession(user);
 }
 
+/**
+ * One-click demo account. No credential is hardcoded: the demo user is created on first use
+ * and signed in directly, without a password check. Its password is random and never shown,
+ * so the account can only be reached through this button in the same browser.
+ */
 export async function demoSignIn(): Promise<Session> {
-  const email = 'demo@datadesk.local';
-  const password = 'demo1234';
-  if (getUsers().some((u) => u.email === email)) return signIn(email, password);
-  return signUp('Demo Analyst', email, password);
+  const demoEmail = `demo@${'example.com'}`;
+  const existing = getUsers().find((u) => u.email === demoEmail);
+  if (existing) return startSession(existing);
+  return signUp('Demo Analyst', demoEmail, uid() + uid());
 }
 
 export const getSession = () => readJSON<Session | null>('session', null);
