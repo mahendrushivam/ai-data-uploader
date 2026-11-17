@@ -1,55 +1,96 @@
-# DataDesk: CSV Uploader
+# DataDesk: CSV uploader with templates and rules
 
-Upload a CSV, map its columns to types, then review and edit the data in an Excel-style grid.
-Everything is stored in the browser's `localStorage` (no backend yet).
+Define CSV templates (columns, types, rules), upload files against them (or set up columns and rules on
+the fly), and get every problem back: on screen, in an error report, and in a corrected file in your
+template's format. Files are validated in the background, and the uploads list shows each file's status live.
 
+**Release:** v0.1.0 (Phase 1). See [`RELEASE_NOTES.md`](RELEASE_NOTES.md) · [screenshots of every tested flow](docs/screenshots/README.md)
+
+## Run it (Docker, production build)
 ```bash
+cp .env.example .env            # set POSTGRES_PASSWORD, and the same password in DATABASE_URL
+npm run docker:up               # Postgres, migrations, API, background worker, web
+open http://localhost:8000      # sign up, create a template, upload a CSV
+```
+Optional: `npm run docker:seed` loads demo data (its demo user has no usable password; sign up instead).
+
+## Develop
+```bash
+cp .env.example .env
 npm install
-npm run dev        # http://localhost:5173
-npm run build      # typecheck + production build
+npm run db:up                   # Postgres in Docker + migrations (or any PostgreSQL 16, then npm run db:migrate)
+npm run dev:all                 # API :3000, worker, UI :5173 (proxies /api), all with live reload
 ```
 
-## Flow
-1. **Login**: create an account or use **Continue with demo account**. This is mock auth: users and sessions live in localStorage, and passwords are salted SHA-256 hashes.
-2. **Upload**: drag and drop a `.csv`, `.tsv`, or `.txt` file. The delimiter is auto-detected, and quoted cells with commas are handled. You can also click *Try sample data*.
-3. **Map columns**: each column's type is auto-detected (a type is picked when 90% or more of the values fit it). You can rename, exclude, or retype a column, mark it required, and pick the split delimiter for multi-value columns. A live preview shows how the data renders and how many cells are invalid.
-4. **Review in the grid**: an Excel-style sheet that autosaves on every change.
+| Area | Command | What it does |
+|---|---|---|
+| Dev | `npm run dev:all` | API, worker and UI together (or `dev:api`, `dev:worker`, `dev:ui`) |
+| Database | `npm run db:up` / `db:down` | start Postgres in Docker and apply migrations / stop it (data kept) |
+| | `npm run db:migrate` / `db:rollback` / `db:status` | apply / undo the last / list migrations (dbmate) |
+| | `npm run db:seed` / `db:test` | load the demo data / run the database schema tests |
+| | `npm run db:reset` | **dev only:** drop, recreate, migrate, seed (refuses production and non-local hosts) |
+| Docker | `npm run docker:up` / `docker:down` / `docker:logs` | start / stop / follow the full stack |
+| | `npm run docker:reset` | **deletes all Docker data**, then rebuilds |
+| Quality | `npm test` | unit + UI component tests (rules, parsing, validation, every page and component in jsdom) |
+| | `npm run coverage` | the same, with a coverage report in `coverage/` (fails below 95% statements / 90% branches) |
+| | `npm run test:api` | API + worker tests against the database in `DATABASE_URL` |
+| | `npm run e2e` | end-to-end browser tests; **installs Playwright's browser on first run** (see below) |
+| | `npm run e2e:screenshots` | same, and refreshes `docs/screenshots/` |
+| | `npm run typecheck` / `build` | type checks (web, server, e2e) / production build of web and server |
+| | `npm run check:lockfile` | verifies `package-lock.json` lists every platform-specific binary (also part of `npm test`) |
 
-## Supported column types
-Text · Number · Integer · Boolean · Date · Email · URL · Single select · **Multi-value list**.
+**About `package-lock.json`:** Vite (via Rollup), esbuild, argon2 and dbmate download a native binary for
+your OS as an *optional* dependency. Only regenerate the lockfile with access to the public npm registry;
+otherwise npm silently drops the other platforms and `npm ci` fails elsewhere with
+`Cannot find module @rollup/rollup-<platform>`. `npm test` checks for this.
 
-A multi-value list holds several values in one cell, for example `"python, sql, ml"`. The cell is stored as an array and shown as chips. You edit it with a tag editor that suggests values already used in the column, and it is joined back with its delimiter on export.
+## End-to-end tests
+Real browser (Playwright + Chromium) → UI → API → PostgreSQL, with the real background worker.
 
-Invalid values are never dropped. They are kept as typed and flagged with a red corner, and the formula bar shows the reason.
+**Prerequisites:** a `.env` file and a running PostgreSQL (`npm run db:up`). That's all: `npm run e2e` takes care of the rest.
 
-## Grid shortcuts
-| Action | Keys |
+**Playwright's browser is not installed by `npm install`.** The `@playwright/test` package is a normal dev
+dependency, but Chromium itself is a separate ~150 MB download (`npx playwright install chromium`). Run
+directly, `npx playwright test` fails on a fresh machine with *"Executable doesn't exist … run npx playwright
+install"*. `npm run e2e` (`scripts/e2e.mjs`) checks first and fixes what it can:
+
+| Check | If it's missing |
 |---|---|
-| Move / extend selection | Arrows / Shift+Arrows, Tab, PageUp/PageDown, Home/End, ⌘+Arrow to the edge |
-| Edit cell | Enter, F2, double-click, or just start typing |
-| Commit and move | Enter (down), Shift+Enter (up), Tab (right) · Esc cancels |
-| Clear cells | Delete / Backspace |
-| Toggle checkbox | Space or click |
-| Copy / cut / paste | ⌘C / ⌘X / ⌘V (tab-separated, works with Excel and Sheets; pasting past the last row adds rows) |
-| Undo / redo | ⌘Z / ⌘⇧Z (or ⌘Y) |
-| Select all | ⌘A |
-| Row / column menus | Right-click a cell or row number · ▾ on a column header |
+| `@playwright/test` package | runs `npm install` |
+| Chromium for Playwright | runs `npx playwright install chromium` (needs internet; once per machine and Playwright version) |
+| `.env` file | stops and shows how to create it |
+| Database reachable and migrated | applies pending migrations; if Postgres isn't running, stops and says `npm run db:up` |
 
-Other features: drag to select a range, drag a header edge to resize a column, sort from the header menu, search across all cells, an **issues** filter (rows with invalid cells), count/sum/average of the selection in the status bar, CSV export, and **live sync across tabs** (edits in one tab appear in the others).
-
-## Structure
+Then it runs the tests. Extra arguments go straight to Playwright:
+```bash
+npm run e2e                              # all specs (the API and UI dev servers are started for you)
+npm run e2e -- e2e/d1-login.spec.ts      # one spec
+npm run e2e -- --headed                  # watch the browser
+npm run e2e -- --ui                      # Playwright's interactive runner
+npm run e2e:screenshots                  # also refresh docs/screenshots/
 ```
-src/
-  lib/columnTypes.ts   type detection, validation, conversion, multi-value split/join
-  lib/storage.ts       localStorage persistence (swap this for an API later)
-  lib/auth.ts          mock auth
-  lib/csv.ts           PapaParse import/export
-  components/Grid.tsx  virtualised spreadsheet: selection, keyboard, clipboard, formula and status bars
-  components/CellEditor.tsx  text and tag editors
-  pages/               Login, Dashboard, Upload (mapping wizard), Sheet
+Behind a proxy, or on Linux without the browser's system libraries: `npx playwright install chromium`
+(with `HTTPS_PROXY` set) or `sudo npx playwright install-deps chromium`. In CI, `npx playwright install --with-deps chromium`.
+
+## How it works
+```
+browser ──(pre-check: shared/ rules)──► POST /api/uploads ──► uploads row "queued" + file (one transaction)
+                                                                    │
+               results page / list poll ◄── status + issues ◄── worker: claim (SKIP LOCKED) → validate (same shared/ code) → save
+```
+- `shared/` holds the rules engine and file validation, used by **both** the browser pre-check and the worker, so they always agree.
+- The queue is the `uploads` table. Workers claim jobs with `FOR UPDATE SKIP LOCKED`, so any number can run, and results are written in one transaction.
+- Templates are versioned: every save creates an immutable version, and each upload records the exact version and column mapping it was checked with.
+
+## Repository layout
+```
+src/        React web app                  shared/   rules, parsing, validation (web + worker)
+server/     Fastify API + worker           db/       migrations, seed, schema tests
+e2e/        Playwright end-to-end tests    fixtures/ reference CSV files used by the tests
+docker/     Dockerfiles, nginx config      docs/     plan, database design, mockups, screenshots
 ```
 
-## Known limits / next steps
-- localStorage holds about 5 MB per origin. Move to IndexedDB, or a backend with paginated rows, for large files.
-- Auth runs only in the browser. Replace `lib/auth.ts` with a real identity provider.
-- Ideas: per-column filters, frozen columns, fill handle, find and replace, bulk-fix suggestions for invalid cells, review status and comments per row, version history, collaborative editing over websockets.
+## Documentation
+- [`docs/PLAN.md`](docs/PLAN.md): scope, decisions, milestones and the progress log
+- [`docs/DATABASE.md`](docs/DATABASE.md): schema, ERD, worker protocol, limits
+- [`docs/COMPETITOR_ANALYSIS.md`](docs/COMPETITOR_ANALYSIS.md) · [`docs/mockups/`](docs/mockups/mockups.html) · [`docs/screenshots/`](docs/screenshots/README.md)

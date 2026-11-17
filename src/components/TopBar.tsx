@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Session } from '../types';
-import { navigate } from '../router';
+import { navigate, useRoute } from '../router';
 
 export function Logo() {
   return (
@@ -11,9 +11,19 @@ export function Logo() {
 }
 
 export function TopBar({ session, onLogout, children }: { session: Session; onLogout: () => void; children?: ReactNode }) {
+  const [page] = useRoute();
+  const onTemplates = page === 'templates';
   return (
     <header className="topbar">
       <Logo />
+      <nav className="nav-tabs">
+        <a href="#/" className={onTemplates ? '' : 'on'}>
+          Uploads
+        </a>
+        <a href="#/templates" className={onTemplates ? 'on' : ''}>
+          Templates
+        </a>
+      </nav>
       <div className="topbar-center">{children}</div>
       <div className="topbar-user">
         <span className="avatar" title={session.email}>

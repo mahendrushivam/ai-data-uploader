@@ -1,10 +1,11 @@
 import { memo } from 'react';
-import type { CellValue, Column } from '../types';
+import type { CellValue, ColumnSpec } from '../types';
 import { chipStyle, parseBool, splitMulti } from '../lib/columnTypes';
 
 interface Props {
   value: CellValue | undefined;
-  column: Column;
+  /** Only the type and delimiter are used, so grid columns and upload columns both fit. */
+  column: ColumnSpec;
 }
 
 function CellViewInner({ value, column }: Props) {

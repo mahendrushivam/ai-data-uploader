@@ -1,0 +1,14 @@
+{
+  "name": "@datadesk/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Column types, parsing and validation rules shared by the web app and the server/worker",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "dependencies": {
+    "zod": "^3.24.1",
+    "papaparse": "^5.4.1"
+  }
+}

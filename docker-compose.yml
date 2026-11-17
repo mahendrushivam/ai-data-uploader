@@ -1,0 +1,144 @@
+# DataDesk local stack.
+#   cp .env.example .env                              # once; then set POSTGRES_PASSWORD
+#   docker compose up -d --build                      # db + migrations + api + worker + web
+#   open http://localhost:8000                        # the app (nginx serves the UI, proxies /api)
+#   docker compose --profile seed run --rm seed       # optional demo data (matches the mockups)
+#   docker compose --profile test run --rm db-test    # schema tests
+#   docker compose --profile tools up -d adminer      # DB browser on http://localhost:8080
+
+name: datadesk
+
+x-db-env: &db-env
+  PGHOST: db
+  PGPORT: "5432"
+  PGUSER: ${POSTGRES_USER:-datadesk}
+  PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+  PGDATABASE: ${POSTGRES_DB:-datadesk}
+
+x-server: &server
+  build:
+    context: .
+    dockerfile: docker/server.Dockerfile
+  image: datadesk/server:latest
+  restart: unless-stopped
+  init: true # proper PID 1: forwards SIGTERM, reaps zombies
+  read_only: true # the app never writes to its filesystem
+  tmpfs: [/tmp]
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+  environment:
+    DATABASE_URL: postgres://${POSTGRES_USER:-datadesk}:${POSTGRES_PASSWORD}@db:5435/${POSTGRES_DB:-datadesk}?sslmode=disable
+    NODE_ENV: production
+    TRUST_PROXY: "true" # requests arrive through nginx; use X-Forwarded-For for client IPs
+    COOKIE_SECURE: ${COOKIE_SECURE:-true}
+    MAX_FILE_BYTES: ${MAX_FILE_BYTES:-5242880}
+    MAX_ROWS: ${MAX_ROWS:-20000}
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-datadesk}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-datadesk}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5435}:5432" # local machine only
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Applies db/migrations/*.sql in order, records them in schema_migrations, then exits.
+  # Safe to run repeatedly: only pending migrations are applied.
+  migrate:
+    image: ghcr.io/amacneil/dbmate:2.36
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-datadesk}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-datadesk}?sslmode=disable
+      DBMATE_MIGRATIONS_DIR: /db/migrations
+      DBMATE_NO_DUMP_SCHEMA: "true"
+    volumes:
+      - ./db:/db:ro
+    command: ["--wait", "up"]
+
+  api:
+    <<: *server
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://127.0.0.1:3000/api/health >/dev/null || exit 1",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Background validation worker: same image as the API, different entry point.
+  worker:
+    <<: *server
+    command: ["node", "--enable-source-maps", "dist/worker.js"]
+    healthcheck:
+      disable: true # no HTTP port; the image's API health check doesn't apply
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
+    image: datadesk/web:latest
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8000}:8080"
+
+  seed:
+    image: postgres:16-alpine
+    profiles: ["seed"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment: *db-env
+    volumes:
+      - ./db:/db:ro
+    command: ["psql", "-v", "ON_ERROR_STOP=1", "-f", "/db/seeds/dev_seed.sql"]
+
+  db-test:
+    image: postgres:16-alpine
+    profiles: ["test"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment: *db-env
+    volumes:
+      - ./db:/db:ro
+    command:
+      [
+        "psql",
+        "-q",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-f",
+        "/db/tests/schema_tests.sql",
+      ]
+
+  adminer:
+    image: adminer:4
+    profiles: ["tools"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+    ports:
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  pgdata:

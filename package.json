@@ -6,22 +6,66 @@
   "description": "CSV data uploader with an Excel-like review grid",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "dev:ui": "vite",
+    "dev:api": "npm run dev --workspace server",
+    "dev:worker": "npm run dev:worker --workspace server",
+    "dev:all": "concurrently -k -n api,worker,ui -c blue,magenta,green \"npm:dev:api\" \"npm:dev:worker\" \"npm:dev:ui\"",
+    "build": "npm run build:web && npm run build:server",
+    "build:web": "tsc --noEmit && vite build",
+    "build:server": "npm run typecheck --workspace server && npm run build --workspace server",
+    "start:api": "npm run start --workspace server",
+    "start:worker": "npm run start:worker --workspace server",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && npm run typecheck --workspace server && tsc --noEmit -p e2e",
+    "test": "vitest run --project unit --project ui",
+    "test:api": "vitest run --project api",
+    "test:all": "vitest run",
+    "db:up": "docker compose up -d --wait db && docker compose run --rm migrate",
+    "db:down": "docker compose stop db",
+    "db:migrate": "dbmate --migrations-dir db/migrations --no-dump-schema --wait up",
+    "db:rollback": "dbmate --migrations-dir db/migrations --no-dump-schema rollback",
+    "db:status": "dbmate --migrations-dir db/migrations --no-dump-schema status",
+    "db:seed": "node server/scripts/run-sql.mjs db/seeds/dev_seed.sql",
+    "db:test": "node server/scripts/run-sql.mjs db/tests/schema_tests.sql",
+    "db:reset": "node server/scripts/db-reset.mjs",
+    "docker:up": "docker compose up -d --build --wait",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f --tail=100 api worker web",
+    "docker:seed": "docker compose --profile seed run --rm seed",
+    "docker:reset": "docker compose down -v --remove-orphans && docker compose up -d --build --wait",
+    "e2e": "node scripts/e2e.mjs",
+    "e2e:screenshots": "node scripts/e2e.mjs --screenshots",
+    "test:ui": "vitest run --project ui",
+    "coverage": "vitest run --project unit --project ui --coverage",
+    "check:lockfile": "node scripts/lockfile.mjs"
   },
   "license": "ISC",
   "dependencies": {
+    "@datadesk/shared": "0.1.0",
     "papaparse": "^5.4.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^6.10.0",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.9",
     "@types/papaparse": "^5.3.15",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
+    "@vitest/coverage-v8": "^2.1.9",
+    "concurrently": "^9.2.5",
+    "dbmate": "^2.36.0",
+    "jsdom": "^25.0.1",
     "typescript": "^5.6.3",
-    "vite": "^5.4.10"
-  }
+    "vite": "^5.4.10",
+    "vitest": "^2.1.9"
+  },
+  "workspaces": [
+    "shared",
+    "server"
+  ]
 }

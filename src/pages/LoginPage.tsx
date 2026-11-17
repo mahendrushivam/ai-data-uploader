@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import type { Session } from '../types';
-import { demoSignIn, signIn, signUp } from '../lib/auth';
+import { signIn, signUp } from '../lib/auth';
+import { ApiError } from '../lib/api';
+import { Field } from '../components/Field';
 
 export function LoginPage({ onLogin }: { onLogin: (s: Session) => void }) {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
@@ -8,15 +10,18 @@ export function LoginPage({ onLogin }: { onLogin: (s: Session) => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   const run = async (fn: () => Promise<Session>) => {
     setBusy(true);
     setError('');
+    setFieldErrors({});
     try {
       onLogin(await fn());
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      if (e instanceof ApiError && Object.keys(e.fields).length) setFieldErrors(e.fields);
+      else setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
@@ -50,45 +55,38 @@ export function LoginPage({ onLogin }: { onLogin: (s: Session) => void }) {
         <form className="auth-card" onSubmit={submit}>
           <h2>{mode === 'signin' ? 'Sign in' : 'Create your account'}</h2>
           <p className="muted">
-            {mode === 'signin' ? 'Welcome back. Your datasets are stored in this browser.' : 'Takes ten seconds. Data stays in this browser.'}
+            {mode === 'signin' ? 'Welcome back.' : 'Your templates and uploads are private to you.'}
           </p>
 
           {mode === 'signup' && (
-            <label className="field">
-              <span>Name</span>
-              <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" autoFocus />
-            </label>
+            <Field label="Name" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" autoFocus error={fieldErrors.name} />
           )}
-          <label className="field">
-            <span>Email</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              autoFocus={mode === 'signin'}
-              required
-            />
-          </label>
-          <label className="field">
-            <span>Password</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-              minLength={mode === 'signup' ? 6 : undefined}
-              required
-            />
-          </label>
+          <Field
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            autoFocus={mode === 'signin'}
+            required
+            error={fieldErrors.email}
+          />
+          <Field
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+            minLength={mode === 'signup' ? 8 : undefined}
+            required
+            error={fieldErrors.password}
+            hint={mode === 'signup' ? 'At least 8 characters.' : undefined}
+          />
 
           {error && <div className="alert error">{error}</div>}
 
           <button className="btn primary block" disabled={busy}>
             {busy ? 'Please wait…' : mode === 'signin' ? 'Sign in' : 'Create account'}
-          </button>
-          <button type="button" className="btn block" disabled={busy} onClick={() => run(demoSignIn)}>
-            Continue with demo account
           </button>
 
           <p className="auth-switch">
@@ -99,6 +97,7 @@ export function LoginPage({ onLogin }: { onLogin: (s: Session) => void }) {
               onClick={() => {
                 setMode(mode === 'signin' ? 'signup' : 'signin');
                 setError('');
+                setFieldErrors({});
               }}
             >
               {mode === 'signin' ? 'Create an account' : 'Sign in'}
